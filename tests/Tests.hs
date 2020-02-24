@@ -15,6 +15,8 @@ import Control.Monad (join)
 import Control.Applicative ( (<$>) )
 import Data.List
 
+import Graphics.Types (formatAsRational)
+import Graphics.PrettyPrinters (ppExposureTime)
 import Graphics.HsExif
 import Graphics.Helpers
 
@@ -46,14 +48,25 @@ main = do
         describe "read GPS lat long -- length 1 for rel" $
             testReadGpsLatLong gps3ExifData 38.1785 (-7.2109)
         describe "test formatAsFloatingPoint" testFormatAsFloatingPoint
+        describe "test formatAsRational" testFormatAsRational
+        describe "test ppExposureTime" testPpExposureTime
         describe "pretty printing" $ testPrettyPrint gpsExifData exifData gps2ExifData
         describe "flash fired" $ testFlashFired exifData
         describe "partial exif data" $ testPartialExif partial
         describe "tiff file" $ testNef tiffExifData
 
+        describe "unusual data layouts" $ do
+            it "parses EXIF below IDF0" $ do
+                result <- parseFileExif "tests/test-exif-below-idf0.jpg"
+                case result of
+                    Left err -> assertBool ("Cannot parse: " ++ err) False
+                    Right tags -> do
+                        (Map.lookup dateTimeOriginal tags) `assertEqual'` (Just $ ExifText "2013:10:02 20:33:33") 
+
+
 testNotAJpeg :: B.ByteString -> Spec
 testNotAJpeg imageContents = it "returns empty list if not a JPEG" $
-    assertEqual' (Left "Not a JPEG, TIFF, or TIFF-based raw file") (parseExif imageContents)
+    assertEqual' (Left "Not a JPEG, TIFF, RAF, or TIFF-based raw file") (parseExif imageContents)
 
 testNoExif :: B.ByteString -> Spec
 testNoExif imageContents = it "returns empty list if no EXIF" $
@@ -108,7 +121,6 @@ testBasic imageContents = it "parses a simple JPEG" $ do
                 (dateTime, ExifText "2014:04:10 20:14:20"),
                 (yCbCrPositioning, ExifNumber 2),
                 (fileSource, ExifUndefined "\ETX"),
-                (exifIfdOffset, ExifNumber 358),
                 (printImageMatching, ExifUndefined "PrintIM\NUL0300\NUL\NUL\ETX\NUL\STX\NUL\SOH\NUL\NUL\NUL\ETX\NUL\"\NUL\NUL\NUL\SOH\SOH\NUL\NUL\NUL\NUL\t\DC1\NUL\NUL\DLE'\NUL\NUL\v\SI\NUL\NUL\DLE'\NUL\NUL\151\ENQ\NUL\NUL\DLE'\NUL\NUL\176\b\NUL\NUL\DLE'\NUL\NUL\SOH\FS\NUL\NUL\DLE'\NUL\NUL^\STX\NUL\NUL\DLE'\NUL\NUL\139\NUL\NUL\NUL\DLE'\NUL\NUL\203\ETX\NUL\NUL\DLE'\NUL\NUL\229\ESC\NUL\NUL\DLE'\NUL\NUL")
             ]) (sort cleanedParsed)
     -- the sony maker note is 35k!! Just test its size and that it starts with "SONY DSC".
@@ -154,6 +166,20 @@ testFormatAsFloatingPoint :: Spec
 testFormatAsFloatingPoint = it "properly formats as floating point" $ do
     assertEqual' "0.75" $ formatAsFloatingPoint 2 $ ExifRational 3 4
     assertEqual' "0.75, -0.50, 0.25" $ formatAsFloatingPoint 2 $ ExifRationalList [(3,4),(-1,2),(1,4)]
+
+testFormatAsRational :: Spec
+testFormatAsRational = it "properly formats as rational" $ do
+    assertEqual' "3/4" $ formatAsRational $ ExifRational 6 8
+    assertEqual' "2" $ formatAsRational $ ExifRational 8 4
+    assertEqual' "3/4, -1/2, 1/4" $ formatAsRational $ ExifRationalList [(3,4),(-1,2),(1,4)]
+
+testPpExposureTime :: Spec
+testPpExposureTime = it "properly formats exposure time" $ do
+    assertEqual'   "1.3 sec." $ ppExposureTime (ExifRational 13 10)
+    assertEqual'     "8 sec." $ ppExposureTime (ExifRational 8 1)
+    assertEqual' "1/125 sec." $ ppExposureTime (ExifRational 10 1250)
+    assertEqual' "1/300 sec." $ ppExposureTime (ExifRational 10 3000)
+    assertEqual'   "0.8 sec." $ ppExposureTime (ExifRational 10 13)
 
 testPrettyPrint :: Maybe (Map ExifTag ExifValue)
     -> Maybe (Map ExifTag ExifValue)
@@ -258,7 +284,6 @@ testNef (Just exifMap) = it "parses EXIF from a NEF file" $ do
                 (ExifTag IFD0 Nothing 0x14a (T.pack . show), ExifNumber 58880),
                 (referenceBlackWhite, ExifRationalList [(0,1),(255,1),(0,1),(255,1),(0,1),(255,1)]),
                 (copyright, ExifText "Copyright,NIKON CORPORATION,1999\0"),
-                (exifIfdOffset, ExifNumber 528),
                 (ExifTag IFD0 Nothing 0x9003 (T.pack . show), ExifText "2000:11:19 13:01:50"),
                 (ExifTag IFD0 Nothing 0x9216 (T.pack . show), ExifNumberList [1,0,0,0])
               ])

@@ -35,8 +35,8 @@ asFpWithFormat fmt = T.pack . printf fmt . formatAsFloatingPoint 2
 showT :: Show a => a -> Text
 showT = T.pack . show
 
-exposureTime            = exifSubIfdTag "exposureTime" 0x829a $ withFormat "%s sec."
-fnumber                 = exifSubIfdTag "fnumber" 0x829d $ withFormat "f/%s"
+exposureTime            = exifSubIfdTag "exposureTime" 0x829a $ ppExposureTime
+fnumber                 = exifSubIfdTag "fnumber" 0x829d ppAperture
 exposureProgram         = exifSubIfdTag "exposureProgram" 0x8822 ppExposureProgram
 spectralSensitivity     = exifSubIfdTag "spectralSensitivity" 0x8824 showT
 isoSpeedRatings         = exifSubIfdTag "isoSpeedRatings" 0x8827 showT
@@ -46,11 +46,11 @@ dateTimeOriginal        = exifSubIfdTag "dateTimeOriginal" 0x9003 showT
 dateTimeDigitized       = exifSubIfdTag "dateTimeDigitized" 0x9004 showT
 componentConfiguration  = exifSubIfdTag "componentConfiguration" 0x9101 ppComponentConfiguration
 compressedBitsPerPixel  = exifSubIfdTag "compressedBitsPerPixel" 0x9102 (T.pack . formatAsFloatingPoint 2)
-shutterSpeedValue       = exifSubIfdTag "shutterSpeedValue" 0x9201 $ withFormat "%s sec."
-apertureValue           = exifSubIfdTag "apertureValue" 0x9202 ppAperture
+shutterSpeedValue       = exifSubIfdTag "shutterSpeedValue" 0x9201 $ ppExposureTime
+apertureValue           = exifSubIfdTag "apertureValue" 0x9202 ppApexAperture
 brightnessValue         = exifSubIfdTag "brightnessValue" 0x9203 $ asFpWithFormat "%s EV"
 exposureBiasValue       = exifSubIfdTag "exposureBiasValue" 0x9204 $ asFpWithFormat "%s EV"
-maxApertureValue        = exifSubIfdTag "maxApertureValue" 0x9205 ppAperture
+maxApertureValue        = exifSubIfdTag "maxApertureValue" 0x9205 ppApexAperture
 subjectDistance         = exifSubIfdTag "subjectDistance" 0x9206 showT
 meteringMode            = exifSubIfdTag "meteringMode" 0x9207 ppMeteringMode
 lightSource             = exifSubIfdTag "lightSource" 0x9208 ppLightSource
@@ -109,8 +109,6 @@ yCbCrCoefficients       = exifIfd0Tag "yCbCrCoefficients" 0x0211 showT
 yCbCrPositioning        = exifIfd0Tag "yCbCrPositioning" 0x0213 ppYCbCrPositioning
 referenceBlackWhite     = exifIfd0Tag "referenceBlackWhite" 0x0214 showT
 copyright               = exifIfd0Tag "copyright" 0x8298 showT
-exifIfdOffset           = exifIfd0Tag "exifIfdOffset" 0x8769 showT
-gpsTagOffset            = exifIfd0Tag "gpsTagOffset" 0x8825 showT
 printImageMatching      = exifIfd0Tag "printImageMatching" 0xc4a5 ppUndef
 
 gpsVersionID            = exifGpsTag "gpsVersionID" 0x0000 showT
@@ -163,7 +161,7 @@ allExifTags = [exposureTime, fnumber, exposureProgram, isoSpeedRatings,
     imageUniqueId, exifInteroperabilityOffset, imageDescription,
     xResolution, yResolution, resolutionUnit, dateTime, whitePoint,
     primaryChromaticities, yCbCrPositioning, yCbCrCoefficients, referenceBlackWhite,
-    exifIfdOffset, printImageMatching, gpsTagOffset, artist,
+    printImageMatching, artist,
     gpsVersionID, gpsLatitudeRef, gpsLatitude, gpsLongitudeRef, gpsLongitude,
     gpsAltitudeRef, gpsAltitude, gpsTimeStamp, gpsSatellites, gpsStatus,
     gpsMeasureMode, gpsDop, gpsSpeedRef, gpsSpeed, gpsTrackRef, gpsTrack,
